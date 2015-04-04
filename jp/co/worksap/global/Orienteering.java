@@ -50,7 +50,7 @@ public class Orienteering {
 		// debug
 		o.debugMap();
 
-		drawDetailedPoints(o);
+		//drawDetailedPoints(o);
 
 		// / Starting algorithm
 		o.map = new char[o.readMap_Height][o.readMap_Width];
@@ -62,6 +62,9 @@ public class Orienteering {
 		// S 'Start', & @ 'Checkpoint's
 		if (o.traverseMap(o.readMap)) {
 
+			System.out.println(o.readMap_Width+ " " + o.readMap_Height);
+			o.DrawMap(o.readMap);
+			
 			// Adding a startPoint & a goalPoint into o.points collection.
 			// Assumed that a startPoint is always as the second-last point
 			// and a goalPoint is always as the last point, in o.points.
@@ -81,10 +84,11 @@ public class Orienteering {
 			for (int h_ptr = 0; h_ptr < o.points.size(); h_ptr++) {
 				for (int w_ptr = 0; w_ptr < h_ptr; w_ptr++) {
 
-					System.out.println("dari:" + o.points.get(h_ptr).xPosition
-							+ "," + o.points.get(h_ptr).yPosition + " ke "
-							+ o.points.get(w_ptr).xPosition + ","
-							+ o.points.get(w_ptr).yPosition);
+					// System.out.println("dari:" +
+					// o.points.get(h_ptr).xPosition
+					// + "," + o.points.get(h_ptr).yPosition + " ke "
+					// + o.points.get(w_ptr).xPosition + ","
+					// + o.points.get(w_ptr).yPosition);
 
 					o.findingDistancePath(o.points.get(h_ptr).yPosition,
 							o.points.get(h_ptr).xPosition,
@@ -95,14 +99,16 @@ public class Orienteering {
 			}
 			System.out.println("PATHFINDING IS FINISH *************");
 			o.reversingTablePath();
-			draw_tableLookUp(o); // out string
-			draw_tablePaths(o); // out string
+			System.out.println("REVERSE IS FINISH *************");
+			//draw_tableLookUp(o); // out string
+			//draw_tablePaths(o); // out string
 
 			// / Finding the shortest distance & path from 'Start' to 'Goal' by
 			// passing all 'Checkpoint'
 			// / I.S.: Having table_lookUp (distance values from each pairs)
 			// / F.S.: Getting shortest distance that satisfying the condition
 			o.findingShortestDistance();
+			System.out.println("B&B IS FINISH *************");
 		} else {
 			System.out.println(-1);
 		}
@@ -112,9 +118,14 @@ public class Orienteering {
 	public boolean traverseMap(char[][] map) {
 		boolean flag_goal = false;
 		boolean flag_start = false;
+		boolean flag_checkPointLessThan18 = true;
 
 		for (int y = 0; y < this.readMap_Height; y++) {
 			for (int x = 0; x < this.readMap_Width; x++) {
+				if(this.points.size()>18){
+					flag_checkPointLessThan18 = false;
+					break;
+				}
 				if (map[y][x] == '@') {
 					this.points.add(new Point(x, y, points.size()));
 				} else if (map[y][x] == 'G') {
@@ -128,7 +139,7 @@ public class Orienteering {
 				}
 			}
 		}
-		return flag_goal && flag_start;
+		return flag_goal && flag_start && flag_checkPointLessThan18;
 	}
 
 	// / Finding paths from each point in points{'S','G','@'}
@@ -154,12 +165,8 @@ public class Orienteering {
 			// / '+' means active point
 			map[activePoint.xPosition][activePoint.yPosition] = '+';
 			n_step++;
-
-			// { 0, 1 } EAST { 1, 0 } SOUTH { 0, -1 } WEST { -1, 0 } NORTH
+			
 			int[][] points = { { 0, 1 }, { 1, 0 }, { 0, -1 }, { -1, 0 } };
-			// int[][] points_n = { { 0, 1 }, { 1, 0 }, { 0, -1 }, { -1, 0 } };
-			// int[][] points_w = { { 0, 1 }, { 1, 0 }, { 0, -1 }, { -1, 0 } };
-			// int[][] points_e = { { 0, 1 }, { 1, 0 }, { 0, -1 }, { -1, 0 } };
 
 			for (int i_adj = 0; i_adj < 4; ++i_adj) {
 				if (activePoint.xPosition + points[i_adj][0] == i2
@@ -170,9 +177,9 @@ public class Orienteering {
 
 					table_paths[counter_i][counter_j] = j2 + "," + i2 + ",";
 					// table_paths[counter_j][counter_i] = j2 + "," + i2 + ",";
-
-					while (activePoint._parent.id != 0) {
-
+					
+					while (activePoint._parent != null && activePoint._parent.id != 0) {
+						
 						table_paths[counter_i][counter_j] += activePoint.yPosition
 								+ "," + activePoint.xPosition + ",";
 
@@ -183,8 +190,10 @@ public class Orienteering {
 					}
 					table_paths[counter_i][counter_j] += activePoint.yPosition
 							+ "," + activePoint.xPosition + ",";
-					table_paths[counter_i][counter_j] += activePoint._parent.yPosition
+					if(activePoint._parent != null){
+						table_paths[counter_i][counter_j] += activePoint._parent.yPosition
 							+ "," + activePoint._parent.xPosition;
+					}
 					// table_paths[counter_j][counter_i] +=
 					// activePoint.yPosition
 					// + "," + activePoint.xPosition + ",";
@@ -209,7 +218,7 @@ public class Orienteering {
 			}
 			map[activePoint.xPosition][activePoint.yPosition] = 'X';
 
-			DrawMap(map);
+			//DrawMap(map);
 			System.out.println("  ActiveSet current-size:" + activeSet.size());
 		}
 		return true;
@@ -239,17 +248,16 @@ public class Orienteering {
 		Point active = points.get(points.size() - 2);
 
 		Comparator<Point> comparator = new DistanceComparator();
-		PriorityQueue<Point> prioQueue = new PriorityQueue<Point>(200,
+		PriorityQueue<Point> prioQueue = new PriorityQueue<Point>(1,
 				comparator);
 		prioQueue.add(active);
 
 		while (prioQueue.peek() != null) {
 			Point currentNode = prioQueue.poll();
-
-			System.out.println(" current node :: " + currentNode.id);
-			for (Point node : prioQueue) {
-				System.out.println(" point in pq :: " + node.id);
-			}
+			//System.out.println(" current node :: " + currentNode.id);
+//			for (Point node : prioQueue) {
+//				System.out.print(node.id);
+//			}
 
 			currentNode.usedIdCollection.add(currentNode.id);
 			if (currentNode.usedIdCollection.size() == points.size() - 1) {
@@ -264,6 +272,7 @@ public class Orienteering {
 				}
 			} else {
 				for (int i = 0; i < points.size() - 2; i++) {
+//					System.out.println("generated "+i);
 					if (currentNode.usedIdCollection.contains(i)) {
 						continue;
 					} else {
@@ -283,20 +292,19 @@ public class Orienteering {
 			}
 		}
 
-		System.out.println("Best Node");
+		// System.out.println("Best Node");
 		// for (int usedCounter : best.usedIdCollection) {
 		for (int i = 0; i < best.usedIdCollection.size() - 1; i++) {
-			System.out
-					.println(" >> "
-							+ best.usedIdCollection.get(i)
-							+ " ("
-							+ table_lookUpDistance[best.usedIdCollection.get(i)][best.usedIdCollection
-									.get(i + 1)] + ")");
+//			System.out.println(" >> "
+//							+ best.usedIdCollection.get(i)
+//							+ " ("
+//							+ table_lookUpDistance[best.usedIdCollection.get(i)][best.usedIdCollection
+//									.get(i + 1)] + ")");
 			//System.out.println(table_paths[best.usedIdCollection.get(i)][best.usedIdCollection.get(i+1)]);
 		}
-		System.out
-				.println(" >> "+ best.usedIdCollection.get(best.usedIdCollection.size() - 1));						
-		System.out.println("shortest dist::" + currentBest);
+//		System.out
+//				.println(" >> "+ best.usedIdCollection.get(best.usedIdCollection.size() - 1));						
+		System.out.println(currentBest);
 	}
 
 	// /=====================================================	
@@ -405,7 +413,7 @@ public class Orienteering {
 			}
 			System.out.println("");
 		}
-		System.out.println("-- DrawMap");
+//		System.out.println("-- DrawMap");
 	}
 
 	public void DrawNode(Point n) {
@@ -435,7 +443,7 @@ public class Orienteering {
 	public char[][] map;
 	
 	private void debugMap() {
-		readMap_Width = 7;
+		readMap_Width = 5;
 		readMap_Height = 7;
 		readMap = new char[readMap_Height][readMap_Width];
 		for (int y = 0; y < this.readMap_Height; y++) {
@@ -445,11 +453,22 @@ public class Orienteering {
 		}
 	}
 
-	char[][] alt_mapDummy = { { '#', '#', '#', '#', '#', '#', '#' },
-			{ '#', '.', '.', '.', '.', '.', '#' },
-			{ '#', '.', 'S', '.', '#', '.', '#' },
-			{ '#', 'G', '.', '.', '#', '.', '#' },
-			{ '#', '#', '#', '#', '.', '.', '#' },
-			{ '#', '@', '.', '@', '.', '.', '#' },
-			{ '#', '#', '#', '#', '#', '#', '#' } };
-}
+	char[][] alt_mapDummy = {
+			{ '#', '#', '#', '#', '#' },
+			{ '#', '.', '.', '.', '#' },
+			{ '#', '.', '.', '.', '#' },
+			{ '#', '.', '.', '.', '#' },
+			{ '#', '.', '.', '.', '#' },
+			{ '#', 'S', '@', 'G', '#' },
+			{ '#', '#', '#', '#', '#' } };
+			
+	}
+//			{ '#', '#', '#', '#', '#' },
+//			{ '#', '@', '@', '@', '#' },
+//			{ '#', '@', '@', '@', '#' },
+//			{ '#', '@', '@', '@', '#' },
+//			{ '#', '@', '@', '@', '#' },
+//			//{ '#', '@', '@', '@', '#' },
+//			{ '#', 'S', 'G', '@', '#' },
+//			{ '#', '#', '#', '#', '#' } };
+//}
