@@ -8,6 +8,20 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.PriorityQueue;
 
+//=======================
+// author: Bayu Munajat | bayumunajat@outlook.com
+// Assumptions :
+// 1. The given map doesn't contain any invalid characters.
+//    Where valid characters are 'S','G','@','.','#'
+// 2. The given map has exactly only 1 start symbol 'S'.
+// 3. The given map has exactly only 1 goal symbol 'G'.
+// 4. Movements are only up, down, left, right
+// 5. May pass any same 'S','G','@','.' more than once, 
+//    if it is necessary.
+// 6. the given map has size, which satisfy 1 <= width <= 100
+//    and 1<= height <= 100
+// 7. the given map has maximum number of checkpoints (18)
+
 public class Orienteering {
 
 	public static void main(String[] args) throws java.lang.Exception {
@@ -18,6 +32,7 @@ public class Orienteering {
 		String readLine;
 		int readLineCounter = 0;
 		int readLine_ptr = 0;
+		
 		while (bufferReader.ready()) {
 			readLine = bufferReader.readLine();
 			if (readLineCounter == 0) {
@@ -32,39 +47,59 @@ public class Orienteering {
 					else if (blankFlag && readCharacter != ' ')
 						readHeight += String.valueOf(readCharacter);
 				}
-
-				readLineCounter++;
-
-				o.readMap_Width = Integer.parseInt(readWidth);
-				o.readMap_Height = Integer.parseInt(readHeight);
+				
+				
+				try {
+					o.readMap_Width = Integer.parseInt(readWidth);
+					o.readMap_Height = Integer.parseInt(readHeight);	
+				} catch (NumberFormatException e) {
+					//System.out.println(e.toString());
+					o.flag_correctFormatMap = false;
+				}				
 				o.readMap = new char[o.readMap_Height][o.readMap_Width];
+				readLineCounter++;
 			} else {
-				for (int readCharacter_ptr = 0; readCharacter_ptr < o.readMap_Width; readCharacter_ptr++)
-					o.readMap[readLine_ptr][readCharacter_ptr] = (char) readLine
-							.charAt(readCharacter_ptr);
-				readLine_ptr++;
-			}
+				if(readLine.length() != o.readMap_Width){
+					o.flag_correctFormatMap = false;
+					break;
+				}				
+				if(readLine_ptr <= 100 && readLine.length() <= 100 && readLine_ptr < o.readMap_Height){					
+					for (int readCharacter_ptr = 0; readCharacter_ptr < readLine.length(); readCharacter_ptr++)
+						o.readMap[readLine_ptr][readCharacter_ptr] = (char) readLine
+								.charAt(readCharacter_ptr);
+					readLine_ptr++;					
+				}else{
+					o.flag_normalSizeMap = false;
+				}				
+			}			
+		}
+		if(readLine_ptr != o.readMap_Height ){
+			o.flag_correctFormatMap = false;
 		}
 		bufferReader.close();
 
 		// debug
-		o.debugMap();
+		//o.using_DummyMap();
 
-		//drawDetailedPoints(o);
+		// drawDetailedPoints(o);
 
 		// / Starting algorithm
 		o.map = new char[o.readMap_Height][o.readMap_Width];
 		o.initializeMap(o.map);
 
+		// /1=============================================================
 		// / Traversing the readMap
 		// / I.S.: Traversing readMap, loaded from given txt file
 		// / F.S.: Getting valid readMap, if it is then, getting the G 'Goal',
 		// S 'Start', & @ 'Checkpoint's
 		if (o.traverseMap(o.readMap)) {
 
-			System.out.println(o.readMap_Width+ " " + o.readMap_Height);
-			o.DrawMap(o.readMap);
-			
+			// ============
+			// <input>
+			// ============
+			//System.out.println(o.readMap_Width + " " + o.readMap_Height);
+			//o.DrawMap(o.readMap);
+
 			// Adding a startPoint & a goalPoint into o.points collection.
 			// Assumed that a startPoint is always as the second-last point
 			// and a goalPoint is always as the last point, in o.points.
@@ -77,6 +112,7 @@ public class Orienteering {
 			o.table_paths = new String[o.points.size()][o.points.size()];
 			o.table_lookUpDistance = new int[o.points.size()][o.points.size()];
 
+			// /2=============================================================
 			// / Finding all possible distance & path from each point
 			// respectively
 			// / I.S.: Valid readMap
@@ -97,49 +133,76 @@ public class Orienteering {
 					o.initializeMap(o.map);
 				}
 			}
-			System.out.println("PATHFINDING IS FINISH *************");
-			o.reversingTablePath();
-			System.out.println("REVERSE IS FINISH *************");
-			//draw_tableLookUp(o); // out string
-			//draw_tablePaths(o); // out string
+			// System.out.println("PATHFINDING IS FINISH");
 
+			o.reversingTablePath();
+
+			// System.out.println("REVERSE IS FINISH");
+			// draw_tableLookUp(o); // out string
+			// draw_tablePaths(o); // out string
+
+			// /3=============================================================
 			// / Finding the shortest distance & path from 'Start' to 'Goal' by
 			// passing all 'Checkpoint'
 			// / I.S.: Having table_lookUp (distance values from each pairs)
 			// / F.S.: Getting shortest distance that satisfying the condition
-			o.findingShortestDistance();
-			System.out.println("B&B IS FINISH *************");
+			int shortestDistance = o.findingShortestDistance();
+			// ============
+			// <output> : isFound
+			// ============
+			System.out.println(shortestDistance);
+			// System.out.println("BnB shortest-path IS FINISH *************");
+					
 		} else {
-			System.out.println(-1);
+			// ============
+			// <output> : any invalid in 1 | 2 | 3
+			// ============
+			//return -1;
+			System.out.println(-1);			
 		}
 	}
 
 	// / scanning readMap
 	public boolean traverseMap(char[][] map) {
+		if (!flag_normalSizeMap || !flag_correctFormatMap)
+			return false;
+
 		boolean flag_goal = false;
 		boolean flag_start = false;
 		boolean flag_checkPointLessThan18 = true;
+		boolean flag_onlyOneStartOneGoal = true;
 
 		for (int y = 0; y < this.readMap_Height; y++) {
 			for (int x = 0; x < this.readMap_Width; x++) {
-				if(this.points.size()>18){
+				if (this.points.size() > 18) {
 					flag_checkPointLessThan18 = false;
 					break;
 				}
 				if (map[y][x] == '@') {
 					this.points.add(new Point(x, y, points.size()));
 				} else if (map[y][x] == 'G') {
-					this.goalPoint.xPosition = x;
-					this.goalPoint.yPosition = y;
-					flag_goal = true;
+					if (!flag_goal) {
+						this.goalPoint.xPosition = x;
+						this.goalPoint.yPosition = y;
+						flag_goal = true;
+					} else {
+						flag_onlyOneStartOneGoal = false;
+						break;
+					}
 				} else if (map[y][x] == 'S') {
-					this.startPoint.xPosition = x;
-					this.startPoint.yPosition = y;
-					flag_start = true;
+					if (!flag_start) {
+						this.startPoint.xPosition = x;
+						this.startPoint.yPosition = y;
+						flag_start = true;
+					} else {
+						flag_onlyOneStartOneGoal = false;
+						break;
+					}
 				}
 			}
 		}
-		return flag_goal && flag_start && flag_checkPointLessThan18;
+		return flag_goal && flag_start && flag_checkPointLessThan18
+				&& flag_onlyOneStartOneGoal;
 	}
 
 	// / Finding paths from each point in points{'S','G','@'}
@@ -165,7 +228,7 @@ public class Orienteering {
 			// / '+' means active point
 			map[activePoint.xPosition][activePoint.yPosition] = '+';
 			n_step++;
-			
+
 			int[][] points = { { 0, 1 }, { 1, 0 }, { 0, -1 }, { -1, 0 } };
 
 			for (int i_adj = 0; i_adj < 4; ++i_adj) {
@@ -177,9 +240,10 @@ public class Orienteering {
 
 					table_paths[counter_i][counter_j] = j2 + "," + i2 + ",";
 					// table_paths[counter_j][counter_i] = j2 + "," + i2 + ",";
-					
-					while (activePoint._parent != null && activePoint._parent.id != 0) {
-						
+
+					while (activePoint._parent != null
+							&& activePoint._parent.id != 0) {
+
 						table_paths[counter_i][counter_j] += activePoint.yPosition
 								+ "," + activePoint.xPosition + ",";
 
@@ -190,9 +254,9 @@ public class Orienteering {
 					}
 					table_paths[counter_i][counter_j] += activePoint.yPosition
 							+ "," + activePoint.xPosition + ",";
-					if(activePoint._parent != null){
+					if (activePoint._parent != null) {
 						table_paths[counter_i][counter_j] += activePoint._parent.yPosition
-							+ "," + activePoint._parent.xPosition;
+								+ "," + activePoint._parent.xPosition;
 					}
 					// table_paths[counter_j][counter_i] +=
 					// activePoint.yPosition
@@ -218,8 +282,9 @@ public class Orienteering {
 			}
 			map[activePoint.xPosition][activePoint.yPosition] = 'X';
 
-			//DrawMap(map);
-			System.out.println("  ActiveSet current-size:" + activeSet.size());
+			// DrawMap(map);
+			// System.out.println("  ActiveSet current-size:" +
+			// activeSet.size());
 		}
 		return true;
 	}
@@ -241,23 +306,22 @@ public class Orienteering {
 	}
 
 	// / by adopting Branch & Bound algorithm
-	private void findingShortestDistance() {
+	private int findingShortestDistance() {
 		Point best = new Point();
 		int currentBest = Integer.MAX_VALUE;
 
 		Point active = points.get(points.size() - 2);
 
 		Comparator<Point> comparator = new DistanceComparator();
-		PriorityQueue<Point> prioQueue = new PriorityQueue<Point>(1,
-				comparator);
+		PriorityQueue<Point> prioQueue = new PriorityQueue<Point>(1, comparator);
 		prioQueue.add(active);
 
 		while (prioQueue.peek() != null) {
 			Point currentNode = prioQueue.poll();
-			//System.out.println(" current node :: " + currentNode.id);
-//			for (Point node : prioQueue) {
-//				System.out.print(node.id);
-//			}
+			// System.out.println(" current node :: " + currentNode.id);
+			// for (Point node : prioQueue) {
+			// System.out.print(node.id);
+			// }
 
 			currentNode.usedIdCollection.add(currentNode.id);
 			if (currentNode.usedIdCollection.size() == points.size() - 1) {
@@ -272,7 +336,7 @@ public class Orienteering {
 				}
 			} else {
 				for (int i = 0; i < points.size() - 2; i++) {
-//					System.out.println("generated "+i);
+					// System.out.println("generated "+i);
 					if (currentNode.usedIdCollection.contains(i)) {
 						continue;
 					} else {
@@ -295,19 +359,22 @@ public class Orienteering {
 		// System.out.println("Best Node");
 		// for (int usedCounter : best.usedIdCollection) {
 		for (int i = 0; i < best.usedIdCollection.size() - 1; i++) {
-//			System.out.println(" >> "
-//							+ best.usedIdCollection.get(i)
-//							+ " ("
-//							+ table_lookUpDistance[best.usedIdCollection.get(i)][best.usedIdCollection
-//									.get(i + 1)] + ")");
-			//System.out.println(table_paths[best.usedIdCollection.get(i)][best.usedIdCollection.get(i+1)]);
+			// System.out.println(" >> "
+			// + best.usedIdCollection.get(i)
+			// + " ("
+			// +
+			// table_lookUpDistance[best.usedIdCollection.get(i)][best.usedIdCollection
+			// .get(i + 1)] + ")");
+			// System.out.println(table_paths[best.usedIdCollection.get(i)][best.usedIdCollection.get(i+1)]);
 		}
-//		System.out
-//				.println(" >> "+ best.usedIdCollection.get(best.usedIdCollection.size() - 1));						
-		System.out.println(currentBest);
+		// System.out
+		// .println(" >> "+
+		// best.usedIdCollection.get(best.usedIdCollection.size() - 1));
+		// System.out.println(currentBest);
+		return currentBest;
 	}
 
-	// /=====================================================	
+	// /=====================================================
 	private void initializeMap(char[][] map) {
 		for (int y = 0; y < readMap_Height; y++)
 			for (int x = 0; x < readMap_Width; x++)
@@ -413,7 +480,7 @@ public class Orienteering {
 			}
 			System.out.println("");
 		}
-//		System.out.println("-- DrawMap");
+		// System.out.println("-- DrawMap");
 	}
 
 	public void DrawNode(Point n) {
@@ -441,8 +508,15 @@ public class Orienteering {
 
 	public char[][] readMap;
 	public char[][] map;
-	
-	private void debugMap() {
+
+	// whether map dimension
+	// is less than or equal to 100x100
+	boolean flag_normalSizeMap = true;
+	// whether map format
+	// is correct w|h with actual given map
+	boolean flag_correctFormatMap = true;
+
+	private void using_DummyMap() {
 		readMap_Width = 5;
 		readMap_Height = 7;
 		readMap = new char[readMap_Height][readMap_Width];
@@ -453,22 +527,22 @@ public class Orienteering {
 		}
 	}
 
-	char[][] alt_mapDummy = {
-			{ '#', '#', '#', '#', '#' },
-			{ '#', '.', '.', '.', '#' },
-			{ '#', '.', '.', '.', '#' },
-			{ '#', '.', '.', '.', '#' },
-			{ '#', '.', '.', '.', '#' },
-			{ '#', 'S', '@', 'G', '#' },
-			{ '#', '#', '#', '#', '#' } };
-			
-	}
-//			{ '#', '#', '#', '#', '#' },
-//			{ '#', '@', '@', '@', '#' },
-//			{ '#', '@', '@', '@', '#' },
-//			{ '#', '@', '@', '@', '#' },
-//			{ '#', '@', '@', '@', '#' },
-//			//{ '#', '@', '@', '@', '#' },
-//			{ '#', 'S', 'G', '@', '#' },
-//			{ '#', '#', '#', '#', '#' } };
-//}
+	char[][] alt_mapDummy = { 
+        { '#', '#', '#', '#', '#' },
+		{ '#', 'S', '.', '@', '#' }, 
+        { '#', '.', '.', '.', '#' },
+		{ '#', '.', '.', '.', '#' }, 
+        { '#', '.', '.', '.', '#' },
+		{ '#', '.', '@', 'G', '#' }, 
+        { '#', '#', '#', '#', '#' } };
+
+}
+// { '#', '#', '#', '#', '#' },
+// { '#', '@', '@', '@', '#' },
+// { '#', '@', '@', '@', '#' },
+// { '#', '@', '@', '@', '#' },
+// { '#', '@', '@', '@', '#' },
+// //{ '#', '@', '@', '@', '#' },
+// { '#', 'S', 'G', '@', '#' },
+// { '#', '#', '#', '#', '#' } };
+// }
