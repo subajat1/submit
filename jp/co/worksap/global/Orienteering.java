@@ -1,575 +1,451 @@
 package jp.co.worksap.global;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.PriorityQueue;
-import java.util.Queue;
 
 public class Orienteering {
 
-	public int MAP_WIDTH;
-	public int MAP_HEIGHT;
-
-	public Node GOAL;
-	public Node START;
-	public List<Node> NODES;
-
-	public int[][] T_look;
-	public String[][] T_location;
-
-	public int ch_point, n_step;
-
-	public Orienteering() {
-
-		System.gc();
-
-		NODES = new ArrayList<Node>();
-		GOAL = new Node();
-		START = new Node();
-	}
-
-	public char[][] alt_map;
-	public char[][] map;
-
-	// MATRIX DISTANCE
-	// ARRAY 2D
-
 	public static void main(String[] args) throws java.lang.Exception {
-		java.io.BufferedReader r = new java.io.BufferedReader(
-				new java.io.InputStreamReader(System.in));
-		String s;
-
 		Orienteering o = new Orienteering();
-		int LineCounter = 0;
-		int arr_h = 0;
-		while (r.ready()) {
-			s = r.readLine();
-			if (LineCounter == 0) {
-				String w0 = "", h0 = "";
-				boolean flag_wh = false;
-				for (char c : s.toCharArray()) {
-					if (c == ' ')
-						flag_wh = true;
-					if (!flag_wh && c != ' ')
-						w0 += String.valueOf(c);
-					else if (flag_wh && c != ' ')
-						h0 += String.valueOf(c);
-					System.out.println(String.valueOf(c));
+
+		BufferedReader bufferReader = new BufferedReader(new InputStreamReader(
+				System.in));
+		String readLine;
+		int readLineCounter = 0;
+		int readLine_ptr = 0;
+		while (bufferReader.ready()) {
+			readLine = bufferReader.readLine();
+			if (readLineCounter == 0) {
+				String readWidth = "", readHeight = "";
+				boolean blankFlag = false;
+				for (char readCharacter : readLine.toCharArray()) {
+					if (readCharacter == ' ')
+						blankFlag = true;
+
+					if (!blankFlag && readCharacter != ' ')
+						readWidth += String.valueOf(readCharacter);
+					else if (blankFlag && readCharacter != ' ')
+						readHeight += String.valueOf(readCharacter);
 				}
 
-				o.MAP_WIDTH = Integer.parseInt(w0);
-				o.MAP_HEIGHT = Integer.parseInt(h0);
-				o.alt_map = new char[o.MAP_HEIGHT][o.MAP_WIDTH];
+				readLineCounter++;
 
-				System.out.println("WIDTHMAP::: " + o.MAP_WIDTH);
-				System.out.println("HEIGHTMAP:: " + o.MAP_HEIGHT);
-
-				LineCounter++;
+				o.readMap_Width = Integer.parseInt(readWidth);
+				o.readMap_Height = Integer.parseInt(readHeight);
+				o.readMap = new char[o.readMap_Height][o.readMap_Width];
 			} else {
-				for (int arr_w = 0; arr_w < o.MAP_WIDTH; arr_w++) {
-					o.alt_map[arr_h][arr_w] = (char) s.charAt(arr_w);
-					// System.out.print(String.valueOf(s.charAt(arr_w)));
-				}
-				// System.out.println(" shit " + String.valueOf(arr_h));
-				arr_h++;
+				for (int readCharacter_ptr = 0; readCharacter_ptr < o.readMap_Width; readCharacter_ptr++)
+					o.readMap[readLine_ptr][readCharacter_ptr] = (char) readLine
+							.charAt(readCharacter_ptr);
+				readLine_ptr++;
 			}
 		}
-		r.close();
+		bufferReader.close();
 
 		// debug
 		o.debugMap();
-		o.map = new char[o.MAP_HEIGHT][o.MAP_WIDTH];
-		o.map_init();
-		// o.DrawMap(o.alt_map);
-		if (o.ExploreMap(o.alt_map)) {
 
-			o.START.ID = o.NODES.size();
-			o.NODES.add(o.START);
-			o.GOAL.ID = o.NODES.size();
-			o.NODES.add(o.GOAL);
+		drawDetailedPoints(o);
 
-			// +2 means adding a START node & a GOAL node
-			// and assumed that GOAL & START are always the last nodes.
-			o.T_look = new int[o.NODES.size()][o.NODES.size()];
-			o.T_location = new String[o.NODES.size()][o.NODES.size()];
+		// / Starting algorithm
+		o.map = new char[o.readMap_Height][o.readMap_Width];
+		o.initializeMap(o.map);
 
-			// filling matrix
-			for (int j = 0; j < o.NODES.size(); j++) {
-				for (int i = 0; i < j; i++) {
-					// o.T_look[j][i] = o.NODES.get(i).x;
-					// o.T_look[i][j] = o.NODES.get(i).x;
+		// / Traversing the readMap
+		// / I.S.: Traversing readMap, loaded from given txt file
+		// / F.S.: Getting valid readMap, if it is then, getting the G 'Goal',
+		// S 'Start', & @ 'Checkpoint's
+		if (o.traverseMap(o.readMap)) {
 
-					System.out.println("ini::dari:" + o.NODES.get(j).x + ","
-							+ o.NODES.get(j).y + " ke " + o.NODES.get(i).x + ","
-							+ o.NODES.get(i).y);
-					// o.traverse(o.START.y, o.START.x, o.NODES.get(i).y,
-					// o.NODES.get(i).x);
-					o.BFS(o.NODES.get(j).y, o.NODES.get(j).x, o.NODES.get(i).y,
-							o.NODES.get(i).x, i, j);
-					o.map_init();
-					// o.DrawMap(o.alt_map);
+			// Adding a startPoint & a goalPoint into o.points collection.
+			// Assumed that a startPoint is always as the second-last point
+			// and a goalPoint is always as the last point, in o.points.
+			o.startPoint.id = o.points.size();
+			o.points.add(o.startPoint);
+			o.goalPoint.id = o.points.size();
+			o.points.add(o.goalPoint);
+
+			// MASIH PROBLEM, TABLE PATHS SEGITIGA BAWAH BELUM REVERSE
+			o.table_paths = new String[o.points.size()][o.points.size()];
+			o.table_lookUpDistance = new int[o.points.size()][o.points.size()];
+
+			// / Finding all possible distance & path from each point
+			// respectively
+			// / I.S.: Valid readMap
+			// / F.S.: Gaining each distance & path
+			for (int h_ptr = 0; h_ptr < o.points.size(); h_ptr++) {
+				for (int w_ptr = 0; w_ptr < h_ptr; w_ptr++) {
+
+					System.out.println("dari:" + o.points.get(h_ptr).xPosition
+							+ "," + o.points.get(h_ptr).yPosition + " ke "
+							+ o.points.get(w_ptr).xPosition + ","
+							+ o.points.get(w_ptr).yPosition);
+
+					o.findingDistancePath(o.points.get(h_ptr).yPosition,
+							o.points.get(h_ptr).xPosition,
+							o.points.get(w_ptr).yPosition,
+							o.points.get(w_ptr).xPosition, w_ptr, h_ptr);
+					o.initializeMap(o.map);
 				}
 			}
+			System.out.println("PATHFINDING IS FINISH *************");
+			o.reversingTablePath();
+			draw_tableLookUp(o); // out string
+			draw_tablePaths(o); // out string
 
-			System.out.println("*************");
-			for (int j = 0; j < o.NODES.size(); j++) {
-				for (int i = 0; i < o.NODES.size(); i++) {
-					System.out.print("["+o.T_look[j][i]+"]");
-				}
-				System.out.println("");
-			}
-			
-			for (int j = 0; j < o.NODES.size(); j++) {
-				for (int i = 0; i < o.NODES.size(); i++) {
-					System.out.print("<"+o.T_location[j][i]+">");
-				}
-				System.out.println("");
-			}
-			
-			o.BNB();
-
-			// o.DrawMap(o.alt_map);
-			// o.DrawMap(o.map);
-
-			// o.BFS(o.START.y, o.START.x);
-
+			// / Finding the shortest distance & path from 'Start' to 'Goal' by
+			// passing all 'Checkpoint'
+			// / I.S.: Having table_lookUp (distance values from each pairs)
+			// / F.S.: Getting shortest distance that satisfying the condition
+			o.findingShortestDistance();
 		} else {
-			System.out.println("MAP NOT COMPLETE");
+			System.out.println(-1);
 		}
-
-		// System.out.print("GOAL:::");
-		// o.DrawNode(o.GOAL);
-		//
-		// System.out.print("START::");
-		// o.DrawNode(o.START);
-
-		for (Node n : o.NODES) {
-			System.out.print(" NODE " + n.ID + "::");
-			o.DrawNode(n);
-		}
-		// o.DrawMap(o.map);
 	}
 
-	private void BNB() {
-		Node best =new Node();
-		int currentBest =Integer.MAX_VALUE;
-		
-		
-		Node active=NODES.get(NODES.size()-2);
-		
-		Comparator<Node> comp = new StringLengthComparator();
-		PriorityQueue<Node> pq = new PriorityQueue<Node>(10, comp);
-		pq.add(active);
-		
-		while(pq.peek() != null){
-			Node currentNode = pq.poll();
-			
-			for(Node ii : pq){
-				System.out.println(ii.ID+" ID ");	
-			}
-			System.out.println(currentNode.ID+" <--");
-			currentNode.used.add(currentNode.ID);
-			if(currentNode.used.size() == NODES.size()-1){
-				if(currentNode.distance_to_root + T_look[NODES.size()-1][currentNode.ID] < currentBest){
-					best = currentNode;
-					currentBest = currentNode.distance_to_root + T_look[NODES.size()-1][currentNode.ID];
+	// / scanning readMap
+	public boolean traverseMap(char[][] map) {
+		boolean flag_goal = false;
+		boolean flag_start = false;
+
+		for (int y = 0; y < this.readMap_Height; y++) {
+			for (int x = 0; x < this.readMap_Width; x++) {
+				if (map[y][x] == '@') {
+					this.points.add(new Point(x, y, points.size()));
+				} else if (map[y][x] == 'G') {
+					this.goalPoint.xPosition = x;
+					this.goalPoint.yPosition = y;
+					flag_goal = true;
+				} else if (map[y][x] == 'S') {
+					this.startPoint.xPosition = x;
+					this.startPoint.yPosition = y;
+					flag_start = true;
 				}
-			}else{
-				for(int i=0;i<NODES.size()-2;i++){
-					if(currentNode.used.contains(i)){
-						continue;
-					}else{
-						if(currentNode.distance_to_root + T_look[i][currentNode.ID] > currentBest){
-							// do nothing (X)
-						}else{
-							Node newNode = new Node(i);
-							newNode.distance_to_root = currentNode.distance_to_root + T_look[i][currentNode.ID];
-							newNode.used = new ArrayList<Integer>(currentNode.used);
-							pq.add(newNode);
-						}
-					}
-				}	
 			}
 		}
-		for(int ii : best.used){
-			System.out.println(ii+" -> ");	
-		}
-		System.out.println("dist::"+currentBest);
-		
-		
+		return flag_goal && flag_start;
 	}
 
-	public class StringLengthComparator implements Comparator<Node>
-	{
-	    @Override
-	    public int compare(Node x, Node y)
-	    {
-	        // Assume neither string is null. Real code should
-	        // probably be more robust
-	        // You could also just return x.length() - y.length(),
-	        // which would be more efficient.
-	        if (x.distance_to_root < y.distance_to_root)
-	        {
-	            return -1;
-	        }
-	        if (x.distance_to_root > y.distance_to_root)
-	        {
-	            return 1;
-	        }
-	        return 0;
-	    }
-	}
-	
-	private void map_init() {
-		for (int y = 0; y < MAP_HEIGHT; y++) {
-			for (int x = 0; x < MAP_WIDTH; x++) {
-				map[y][x] = '.';
-			}
-		}
-	}
-
-	public boolean BFS(int i, int j, int i2, int j2, int iii, int jjj) {
-		if (!isValid(i, j)) {
+	// / Finding paths from each point in points{'S','G','@'}
+	public boolean findingDistancePath(int i, int j, int i2, int j2,
+			int counter_i, int counter_j) {
+		if (!isValid(i, j))
 			return false;
-		}
 
-		LinkedList<Node> queue = new LinkedList<Node>();
-		n_step = 0;
-		Node startNode = new Node(i, j, n_step);
+		boolean isFound = false;
+		int n_step = 0;
+
+		LinkedList<Point> activeSet = new LinkedList<Point>();
+
+		Point startNode = new Point(i, j, n_step);
 		startNode.level = 0;
-		queue.add(startNode);
-		// map[i][j] = 'X';
+		activeSet.add(startNode);
 
-		boolean f_ketemu = false;
-		
-		while (queue.peek() != null && !f_ketemu) {
-			Node node_act = queue.removeFirst();
-			if (map[node_act.x][node_act.y] == 'X') {
+		while (activeSet.peek() != null && !isFound) {
+			Point activePoint = activeSet.removeFirst();
+			if (map[activePoint.xPosition][activePoint.yPosition] == 'X')
 				continue;
-			}
-			map[node_act.x][node_act.y] = '+';			
-			System.out.println("level::"+node_act.level);
-			// map[node_act.x][node_act.y]='X';
+
+			// / '+' means active point
+			map[activePoint.xPosition][activePoint.yPosition] = '+';
 			n_step++;
+
 			// { 0, 1 } EAST { 1, 0 } SOUTH { 0, -1 } WEST { -1, 0 } NORTH
 			int[][] points = { { 0, 1 }, { 1, 0 }, { 0, -1 }, { -1, 0 } };
-			int[][] points_n = { { 0, 1 }, { 1, 0 }, { 0, -1 }, { -1, 0 } };
-			int[][] points_w = { { 0, 1 }, { 1, 0 }, { 0, -1 }, { -1, 0 } };
-			int[][] points_e = { { 0, 1 }, { 1, 0 }, { 0, -1 }, { -1, 0 } };
+			// int[][] points_n = { { 0, 1 }, { 1, 0 }, { 0, -1 }, { -1, 0 } };
+			// int[][] points_w = { { 0, 1 }, { 1, 0 }, { 0, -1 }, { -1, 0 } };
+			// int[][] points_e = { { 0, 1 }, { 1, 0 }, { 0, -1 }, { -1, 0 } };
 
-			for (int ii = 0; ii < 4; ++ii) {
-				if (node_act.x + points[ii][0] == i2
-						&& node_act.y + points[ii][1] == j2) {
-					T_look[iii][jjj]= node_act.level+1;
-					T_look[jjj][iii]= node_act.level+1;
-					T_location[iii][jjj]= j2+","+i2+",";
-					T_location[jjj][iii]= j2+","+i2+",";
-					while (node_act.parent.ID!=0){
-						T_location[iii][jjj]+= node_act.y+","+node_act.x+",";
-						T_location[jjj][iii]+= node_act.y+","+node_act.x+",";
-						node_act = node_act.parent;
-						
+			for (int i_adj = 0; i_adj < 4; ++i_adj) {
+				if (activePoint.xPosition + points[i_adj][0] == i2
+						&& activePoint.yPosition + points[i_adj][1] == j2) {
+
+					table_lookUpDistance[counter_i][counter_j] = activePoint.level + 1;
+					table_lookUpDistance[counter_j][counter_i] = activePoint.level + 1;
+
+					table_paths[counter_i][counter_j] = j2 + "," + i2 + ",";
+					// table_paths[counter_j][counter_i] = j2 + "," + i2 + ",";
+
+					while (activePoint._parent.id != 0) {
+
+						table_paths[counter_i][counter_j] += activePoint.yPosition
+								+ "," + activePoint.xPosition + ",";
+
+						activePoint = activePoint._parent;
+						// table_paths[counter_j][counter_i] +=
+						// activePoint.yPosition
+						// + "," + activePoint.xPosition + ",";
 					}
-					T_location[iii][jjj]+= node_act.y+","+node_act.x+",";
-					T_location[iii][jjj]+= node_act.parent.y+","+node_act.parent.x;
-					T_location[jjj][iii]+= node_act.y+","+node_act.x+",";
-					T_location[jjj][iii]+= node_act.parent.y+","+node_act.parent.x;
-					f_ketemu = true;
+					table_paths[counter_i][counter_j] += activePoint.yPosition
+							+ "," + activePoint.xPosition + ",";
+					table_paths[counter_i][counter_j] += activePoint._parent.yPosition
+							+ "," + activePoint._parent.xPosition;
+					// table_paths[counter_j][counter_i] +=
+					// activePoint.yPosition
+					// + "," + activePoint.xPosition + ",";
+					// table_paths[counter_j][counter_i] +=
+					// activePoint._parent.yPosition
+					// + "," + activePoint._parent.xPosition;
+					isFound = true;
 					break;
 				}
 
-				Node gNode = new Node(node_act.x + points[ii][0], node_act.y
-						+ points[ii][1], n_step);
+				Point generatedPoint = new Point(activePoint.xPosition
+						+ points[i_adj][0], activePoint.yPosition
+						+ points[i_adj][1], n_step);
 
-				if (isValid(gNode.x, gNode.y) && map[gNode.x][gNode.y] != 'X') {
-					gNode.level = node_act.level+1;
-					gNode.parent = node_act;
-					queue.add(gNode);
-					map[gNode.x][gNode.y] = '%';
+				if (isValid(generatedPoint.xPosition, generatedPoint.yPosition)
+						&& map[generatedPoint.xPosition][generatedPoint.yPosition] != 'X') {
+					generatedPoint.level = activePoint.level + 1;
+					generatedPoint._parent = activePoint;
+					activeSet.add(generatedPoint);
+					map[generatedPoint.xPosition][generatedPoint.yPosition] = '%';
 				}
 			}
-			// alt_map[node_act.x][node_act.y] =
-			// String.valueOf(n_step).charAt(0);
+			map[activePoint.xPosition][activePoint.yPosition] = 'X';
+
 			DrawMap(map);
-			System.out.println("size:" + queue.size());
-			// DrawMap(alt_map);
-			map[node_act.x][node_act.y] = 'X';
-			// maze[x][y]='#';
+			System.out.println("  ActiveSet current-size:" + activeSet.size());
 		}
-
-		return false;
+		return true;
 	}
 
-	public boolean traverse(int i, int j, int i2, int j2) {
-		if (!isValid(i, j)) {
-			return false;
-		}
+	public void reversingTablePath() {
+		for (int h_ptr = 0; h_ptr < points.size(); h_ptr++) {
+			for (int w_ptr = 0; w_ptr < h_ptr; w_ptr++) {
+				String tempPath = table_paths[w_ptr][h_ptr];
+				String reversedPath = "";
+				String[] splitPath = tempPath.split(",");
 
-		DrawMap(map);
+				for (int i = splitPath.length - 1; i > 0; i -= 2) {
+					reversedPath += splitPath[i - 1] + "," + splitPath[i] + ",";
+				}
 
-		if (isEnd(i, j, i2, j2)) {
-			map[i][j] = 'O';
-			System.out.println("== end ===");
-			map_init();
-			// DrawMap(map);
-			return true;
-		} else {
-			map[i][j] = 'X';
-			System.out.println("curr: " + j + "::" + i);
-			System.out.println("cur2: " + j2 + "::" + i2);
-			// DrawMap(map);
-		}
-
-		if (j2 - j == 0 && i2 - i > 0) {
-			// South
-			if (traverse(i + 1, j, i2, j2)) {
-				map[i + 1][j] = 's';
-				return true;
-			}
-		} else if (j2 - j == 0 && i2 - i < 0) {
-			// North
-			if (traverse(i - 1, j, i2, j2)) {
-				map[i - 1][j] = 'n';
-				return true;
-			}
-		} else if (j2 - j > 0 && i2 - i == 0) {
-			// East
-			if (traverse(i, j + 1, i2, j2)) {
-				map[i][j + 1] = 'e';
-				return true;
-			}
-		} else if (j2 - j < 0 && i2 - i == 0) {
-			// West
-			if (traverse(i, j - 1, i2, j2)) {
-				map[i][j - 1] = 'w';
-				return true;
-			}
-		} else
-
-		if (j2 - j > 0 && i2 - i > 0) {
-			// s-e-n-w
-			System.out.println("s-e-n-w");
-			// South
-			if (traverse(i + 1, j, i2, j2)) {
-				map[i + 1][j] = 's';
-				return true;
-			}
-			// East
-			if (traverse(i, j + 1, i2, j2)) {
-				map[i][j + 1] = 'e';
-				return true;
-			}
-			// North
-			if (traverse(i - 1, j, i2, j2)) {
-				map[i - 1][j] = 'n';
-				return true;
-			}
-			// West
-			if (traverse(i, j - 1, i2, j2)) {
-				map[i][j - 1] = 'w';
-				return true;
-			}
-		} else if (j2 - j > 0 && i2 - i < 0) {
-
-			// N-E-s-W
-			System.out.println("N-E-s-W");
-			// North
-			if (traverse(i - 1, j, i2, j2)) {
-				map[i - 1][j] = 'n';
-				return true;
-			}
-			// East
-			if (traverse(i, j + 1, i2, j2)) {
-				map[i][j + 1] = 'e';
-				return true;
-			}
-			// South
-			if (traverse(i + 1, j, i2, j2)) {
-				map[i + 1][j] = 's';
-				return true;
-			}
-			// West
-			if (traverse(i, j - 1, i2, j2)) {
-				map[i][j - 1] = 'w';
-				return true;
-			}
-		} else if (j2 - j < 0 && i2 - i > 0) {
-			// s-w-n-e
-			System.out.println("s-w-n-e");
-			// South
-			if (traverse(i + 1, j, i2, j2)) {
-				map[i + 1][j] = 's';
-				return true;
-			}
-			// West
-			if (traverse(i, j - 1, i2, j2)) {
-				map[i][j - 1] = 'w';
-				return true;
-			}
-			// North
-			if (traverse(i - 1, j, i2, j2)) {
-				map[i - 1][j] = 'n';
-				return true;
-			}
-			// East
-			if (traverse(i, j + 1, i2, j2)) {
-				map[i][j + 1] = 'e';
-				return true;
-			}
-
-		} else if (j2 - j < 0 && i2 - i < 0) {
-			// n-w-s-e
-			System.out.println("N-w-s-e");
-			// North
-			if (traverse(i - 1, j, i2, j2)) {
-				map[i - 1][j] = 'n';
-				return true;
-			}
-			// West
-			if (traverse(i, j - 1, i2, j2)) {
-				map[i][j - 1] = 'w';
-				return true;
-			}
-			// South
-			if (traverse(i + 1, j, i2, j2)) {
-				map[i + 1][j] = 's';
-				return true;
-			}
-			// East
-			if (traverse(i, j + 1, i2, j2)) {
-				map[i][j + 1] = 'e';
-				return true;
-			}
-		}
-		return false;
-	}
-
-	private void debugMap() {
-		MAP_WIDTH = 7;
-		MAP_HEIGHT = 7;
-		alt_map = new char[MAP_HEIGHT][MAP_WIDTH];
-		for (int y = 0; y < this.MAP_HEIGHT; y++) {
-			for (int x = 0; x < this.MAP_WIDTH; x++) {
-				alt_map[y][x] = alt_map0[y][x];
+				table_paths[h_ptr][w_ptr] = reversedPath;
 			}
 		}
 	}
 
-	private boolean isEnd(int i, int j, int i2, int j2) {
-		if ((alt_map[i][j] == 'G' || alt_map[i][j] == '@') && i == i2
-				&& j == j2) {
-			System.out.println("KETEMU");
-			return true;
-		} else {
-			return false;
+	// / by adopting Branch & Bound algorithm
+	private void findingShortestDistance() {
+		Point best = new Point();
+		int currentBest = Integer.MAX_VALUE;
+
+		Point active = points.get(points.size() - 2);
+
+		Comparator<Point> comparator = new DistanceComparator();
+		PriorityQueue<Point> prioQueue = new PriorityQueue<Point>(200,
+				comparator);
+		prioQueue.add(active);
+
+		while (prioQueue.peek() != null) {
+			Point currentNode = prioQueue.poll();
+
+			System.out.println(" current node :: " + currentNode.id);
+			for (Point node : prioQueue) {
+				System.out.println(" point in pq :: " + node.id);
+			}
+
+			currentNode.usedIdCollection.add(currentNode.id);
+			if (currentNode.usedIdCollection.size() == points.size() - 1) {
+				if (currentNode.distanceToRootPoint
+						+ table_lookUpDistance[currentNode.id][points.size() - 1] < currentBest) {
+					best = currentNode;
+					best.usedIdCollection.add(points.get(points.size() - 1).id);
+
+					currentBest = currentNode.distanceToRootPoint
+							+ table_lookUpDistance[currentNode.id][points
+									.size() - 1];
+				}
+			} else {
+				for (int i = 0; i < points.size() - 2; i++) {
+					if (currentNode.usedIdCollection.contains(i)) {
+						continue;
+					} else {
+						if (currentNode.distanceToRootPoint
+								+ table_lookUpDistance[i][currentNode.id] > currentBest) {
+							// do nothing here (X)
+						} else {
+							Point generatedNode = new Point(i);
+							generatedNode.distanceToRootPoint = currentNode.distanceToRootPoint
+									+ table_lookUpDistance[i][currentNode.id];
+							generatedNode.usedIdCollection = new ArrayList<Integer>(
+									currentNode.usedIdCollection);
+							prioQueue.add(generatedNode);
+						}
+					}
+				}
+			}
 		}
-		// i == MAP_HEIGHT - 1 && j == MAP_WIDTH - 1;
+
+		System.out.println("Best Node");
+		// for (int usedCounter : best.usedIdCollection) {
+		for (int i = 0; i < best.usedIdCollection.size() - 1; i++) {
+			System.out
+					.println(" >> "
+							+ best.usedIdCollection.get(i)
+							+ " ("
+							+ table_lookUpDistance[best.usedIdCollection.get(i)][best.usedIdCollection
+									.get(i + 1)] + ")");
+			//System.out.println(table_paths[best.usedIdCollection.get(i)][best.usedIdCollection.get(i+1)]);
+		}
+		System.out
+				.println(" >> "+ best.usedIdCollection.get(best.usedIdCollection.size() - 1));						
+		System.out.println("shortest dist::" + currentBest);
+	}
+
+	// /=====================================================	
+	private void initializeMap(char[][] map) {
+		for (int y = 0; y < readMap_Height; y++)
+			for (int x = 0; x < readMap_Width; x++)
+				map[y][x] = '.';
 	}
 
 	private boolean isValid(int i, int j) {
-		if (inRange(i, j) && isOpen(i, j) && !isTried(i, j)) {
+		if (isPassable(i, j) && !isTried(i, j) && isInsideTheMap(i, j)) {
 			return true;
 		} else {
 			return false;
 		}
 	}
 
-	private boolean inRange(int i, int j) {
-		return inHeight(i) && inWidth(j);
+	private boolean isInsideTheMap(int i, int j) {
+		return i >= 0 && i < readMap_Height && j >= 0 && j < readMap_Width;
 	}
 
-	private boolean inHeight(int i) {
-		return i >= 0 && i < MAP_HEIGHT;
-	}
-
-	private boolean inWidth(int j) {
-		return j >= 0 && j < MAP_WIDTH;
-	}
-
-	private boolean isOpen(int i, int j) {
-		return alt_map[i][j] == '.' || alt_map[i][j] == 'S'
-				|| alt_map[i][j] == 'G' || alt_map[i][j] == '@';
+	private boolean isPassable(int i, int j) {
+		return readMap[i][j] == '.' || readMap[i][j] == 'S'
+				|| readMap[i][j] == 'G' || readMap[i][j] == '@';
 	}
 
 	private boolean isTried(int i, int j) {
 		return map[i][j] == 'X';
 	}
 
-	public boolean ExploreMap(char[][] map) {
-		boolean flag_goal = false;
-		boolean flag_start = false;
-		// char temp = 'z';
+	// ==========================================================
 
-		for (int y = 0; y < this.MAP_HEIGHT; y++) {
-			for (int x = 0; x < this.MAP_WIDTH; x++) {
-				// System.out.print(map[y][x]);
-				// temp = map[y][x];
-
-				if (map[y][x] == 'G') {
-					this.GOAL.x = x;
-					this.GOAL.y = y;
-					flag_goal = true;
-				}
-				if (map[y][x] == 'S') {
-					this.START.x = x;
-					this.START.y = y;
-					flag_start = true;
-				}
-				if (map[y][x] == '@') {
-					this.NODES.add(new Node(x, y, NODES.size()));
-				}
+	// / Class for PriorityQueue Comparator
+	public class DistanceComparator implements Comparator<Point> {
+		@Override
+		public int compare(Point point1, Point point2) {
+			if (point1.distanceToRootPoint < point2.distanceToRootPoint) {
+				return -1;
 			}
-			// System.out.println("");
+			if (point1.distanceToRootPoint > point2.distanceToRootPoint) {
+				return 1;
+			}
+			return 0;
 		}
-		// System.out.println("-------- this is TraverseMap");
-		return flag_goal && flag_start;
+	}
+
+	// / Class for representing each point in readMap
+	public class Point {
+		public Point(int x, int y, int id) {
+			this.xPosition = x;
+			this.yPosition = y;
+			this.id = id;
+			this._parent = null;
+			this.usedIdCollection = new ArrayList<Integer>();
+		}
+
+		public Point(int id) {
+			this.id = id;
+			this._parent = null;
+			this.usedIdCollection = new ArrayList<Integer>();
+		}
+
+		public Point() {
+			this._parent = null;
+			this.usedIdCollection = new ArrayList<Integer>();
+		}
+
+		public int xPosition;
+		public int yPosition;
+		public int id;
+		public int level;
+		public int distanceToRootPoint;
+		public Point _parent;
+		public List<Integer> usedIdCollection;
+	}
+
+	private static void drawDetailedPoints(Orienteering o) {
+		for (Point n : o.points) {
+			System.out.print(" NODE " + n.id + "::");
+			o.DrawNode(n);
+		}
+	}
+
+	private static void draw_tablePaths(Orienteering o) {
+		for (int j = 0; j < o.points.size(); j++) {
+			for (int i = 0; i < o.points.size(); i++) {
+				System.out.print("<" + o.table_paths[j][i] + ">");
+			}
+			System.out.println("");
+		}
+	}
+
+	private static void draw_tableLookUp(Orienteering o) {
+		for (int j = 0; j < o.points.size(); j++) {
+			for (int i = 0; i < o.points.size(); i++) {
+				System.out.print("[" + o.table_lookUpDistance[j][i] + "]");
+			}
+			System.out.println("");
+		}
 	}
 
 	public void DrawMap(char[][] map) {
-
-		for (int y = 0; y < this.MAP_HEIGHT; y++) {
-			for (int x = 0; x < this.MAP_WIDTH; x++) {
+		for (int y = 0; y < this.readMap_Height; y++) {
+			for (int x = 0; x < this.readMap_Width; x++) {
 				System.out.print(map[y][x]);
 			}
 			System.out.println("");
 		}
-		System.out.println("-------- this is DrawMap");
-		// System.out.println(map[1][3]);
+		System.out.println("-- DrawMap");
 	}
 
-	public void DrawNode(Node n) {
-		System.out.println("[ " + n.x + " , " + n.y + "]");
+	public void DrawNode(Point n) {
+		System.out.println("[ " + n.xPosition + " , " + n.yPosition + "]");
 	}
 
-	public class Node {
-		public Node(int x, int y, int id) {
-			this.x = x;
-			this.y = y;
-			this.ID = id;
-			parent = null;
-			used = new ArrayList<Integer>();			
-		}
-
-		public Node() {
-			parent = null;
-			used = new ArrayList<Integer>();
-		}
-
-		public Node(int id) {
-			this.ID = id;
-			parent = null;
-			used = new ArrayList<Integer>();
-		}
-
-		public int x, y, ID, level, distance_to_root;
-		public Node parent;
-		public List<Integer> used;
+	// / Constructor
+	public Orienteering() {
+		points = new ArrayList<Point>();
+		goalPoint = new Point();
+		startPoint = new Point();
 	}
 
-	char[][] alt_map0 = { 
-			{ '#', '#', '#', '#', '#', '#', '#' },
+	public int readMap_Width;
+	public int readMap_Height;
+
+	public Point goalPoint;
+	public Point startPoint;
+	public List<Point> points;
+
+	public int[][] table_lookUpDistance;
+	public String[][] table_paths;
+
+	public int ch_point;
+
+	public char[][] readMap;
+	public char[][] map;
+	
+	private void debugMap() {
+		readMap_Width = 7;
+		readMap_Height = 7;
+		readMap = new char[readMap_Height][readMap_Width];
+		for (int y = 0; y < this.readMap_Height; y++) {
+			for (int x = 0; x < this.readMap_Width; x++) {
+				readMap[y][x] = alt_mapDummy[y][x];
+			}
+		}
+	}
+
+	char[][] alt_mapDummy = { { '#', '#', '#', '#', '#', '#', '#' },
 			{ '#', '.', '.', '.', '.', '.', '#' },
 			{ '#', '.', 'S', '.', '#', '.', '#' },
 			{ '#', 'G', '.', '.', '#', '.', '#' },
